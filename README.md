@@ -26,11 +26,16 @@ jobs:
 ### With Custom Configuration
 
 ```yaml
-name: Validate Commit Message
+name: Commit Message Conformance
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  pull_request: {}
+
+permissions:
+  statuses: write
+  checks: write
+  contents: read
+  pull-requests: read
 
 jobs:
   validate-commit:
