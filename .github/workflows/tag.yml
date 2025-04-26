@@ -25,7 +25,8 @@ jobs:
        github.event.pull_request.labels.*.name != 'version:minor' &&
        github.event.pull_request.labels.*.name != 'version:patch') ||
       (github.event_name == 'push' &&
-       github.ref == 'refs/heads/main')
+       github.ref == 'refs/heads/main' &&
+       !contains(github.event.head_commit.message, 'Merge pull request'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +40,11 @@ jobs:
           git fetch --tags
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           CURRENT_VERSION=${LATEST_TAG#v}
+
+          # Debug information
+          echo "Event name: ${{ github.event_name }}"
+          echo "Event action: ${{ github.event.action }}"
+          echo "Commit message: ${{ github.event.head_commit.message }}"
 
           # Determine version bump type
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -71,7 +77,11 @@ jobs:
               fi
             fi
           else
-            # Default to patch for direct pushes to main
+            # Only process direct pushes that aren't PR merges
+            if [[ "${{ contains(github.event.head_commit.message, 'Merge pull request') }}" == "true" ]]; then
+              echo "Skipping version bump for PR merge commit"
+              exit 0
+            fi
             BUMP_TYPE="patch"
           fi
 
@@ -83,15 +93,19 @@ jobs:
             patch) NEW_VERSION="$major.$minor.$((patch + 1))" ;;
           esac
 
+          # Extract major version
+          MAJOR_VERSION="v${NEW_VERSION%%.*}"
+
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "new_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "major_version=$MAJOR_VERSION" >> $GITHUB_OUTPUT
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
 
       - name: Create and push tag
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # Check if tag already exists
           if git rev-parse "v${{ steps.get_version.outputs.new_version }}" >/dev/null 2>&1; then
@@ -99,9 +113,12 @@ jobs:
             exit 0
           fi
 
-          # Create and push tag
+          # Create and push version tag
+          echo "Creating tag v${{ steps.get_version.outputs.new_version }}"
           git tag -a "v${{ steps.get_version.outputs.new_version }}" -m "Release v${{ steps.get_version.outputs.new_version }} (bump: ${{ steps.get_version.outputs.bump_type }})"
-          if ! git push origin "v${{ steps.get_version.outputs.new_version }}"; then
-            echo "Failed to push tag. Please check permissions."
-            exit 1
-          fi
+          git push origin "v${{ steps.get_version.outputs.new_version }}"
+
+          # Update major version tag
+          echo "Updating major version tag ${{ steps.get_version.outputs.major_version }}"
+          git tag -fa "${{ steps.get_version.outputs.major_version }}" -m "Update major version tag"
+          git push origin "${{ steps.get_version.outputs.major_version }}" --force
