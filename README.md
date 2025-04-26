@@ -7,14 +7,19 @@ A reusable GitHub Action workflow to enforce commit message best practices using
 ### Basic Usage
 
 ```yaml
-name: Validate Commit Message
+name: Commit Message Conformance
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  pull_request: {}
+
+permissions:
+  statuses: write
+  checks: write
+  contents: read
+  pull-requests: read
 
 jobs:
-  validate-commit:
+  commitmsg-conform:
     uses: cloudbuildlab/actions-commitmsg-conform/.github/workflows/commitmsg-conform.yml@v1
 ```
 
@@ -38,7 +43,7 @@ jobs:
               dco: false
               gpg:
                 required: false
-                gitHubOrganization: stacksmiths
+                gitHubOrganization: cloudbuildlab
               spellcheck:
                 locale: US
               maximumOfOneCommit: false
