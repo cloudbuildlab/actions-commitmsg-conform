@@ -12,7 +12,7 @@ on:
                 dco: false
                 gpg:
                   required: false
-                  gitHubOrganization: stacksmiths
+                  gitHubOrganization: cloudbuildlab
                 spellcheck:
                   locale: US
                 maximumOfOneCommit: false
